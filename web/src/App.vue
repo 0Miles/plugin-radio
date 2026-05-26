@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { bootstrapPluginSession } from "@karyl-chan/plugin-sdk/web";
+import { bootstrapPluginSession, decodeJwt } from "@karyl-chan/plugin-sdk/web";
 import AppToast from "./components/AppToast.vue";
 import DeniedView from "./views/DeniedView.vue";
 import ManageView from "./views/ManageView.vue";
@@ -34,17 +34,15 @@ function deny(msg: string): void {
 async function bootstrap(): Promise<void> {
   // Radio's link URLs don't carry `?surface=` — the bot CLI emits a
   // single `/?token=…` (manage or session, distinguished by the JWT's
-  // capabilities). Use the SDK 0.5 `surfaceFromClaims` resolver to
-  // derive surface from the token; the SDK then handles decode,
-  // manage exchange, refresh, and sessionStorage restore.
+  // capabilities). Peek at the token's caps ourselves to pick the SDK
+  // flow: exchange + refresh pair for manage; direct bearer for session.
+  const urlToken = new URLSearchParams(window.location.search).get("token");
+  const urlClaims = urlToken ? decodeJwt(urlToken) : null;
+  const wantsExchange = urlClaims ? isManageClaims(urlClaims) : false;
+
   const handle = await bootstrapPluginSession({
     pluginKey: PLUGIN_KEY,
-    surfaces: {
-      manage: "manage",
-      session: "session",
-    },
-    surfaceFromClaims: (claims) =>
-      isManageClaims(claims) ? "manage" : "session",
+    exchangeJwt: wantsExchange,
     onAccessDenied: (msg) =>
       deny(msg || "Access denied — re-open the link / ask an admin."),
   });
@@ -57,17 +55,16 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
-  if (handle.mode === "none") {
+  if (!handle.isAuthenticated) {
     deny("No valid token. Run /radio manage or use a play/queue response button.");
     return;
   }
 
   // Tab reload — SDK restored auth from sessionStorage but has no
-  // decoded claims for us. Manage resumes cleanly (the SPA never
-  // needed claims for that path); session mode needs the guildId from
-  // claims, so re-prompt the user.
+  // decoded claims for us. Manage tier resumes cleanly; session tier
+  // needs the guildId that lived in the original claims, so re-prompt.
   if (!handle.claims) {
-    if (handle.mode === "manage") {
+    if (handle.hasRefreshPair) {
       view.value = "manage";
       return;
     }
@@ -75,12 +72,12 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
-  if (handle.surface === "manage") {
+  if (wantsExchange) {
     view.value = "manage";
     return;
   }
 
-  // Session mode — pull the guildId from the freshly-decoded claims so
+  // Session tier — pull the guildId from the freshly-decoded claims so
   // SessionView can scope its requests.
   if (typeof handle.claims.guildId === "string") {
     sessionGuildId.value = handle.claims.guildId;
