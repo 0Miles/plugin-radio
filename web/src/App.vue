@@ -1,21 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { bootstrapPluginSession } from "@karyl-chan/plugin-sdk/web";
 import AppToast from "./components/AppToast.vue";
 import DeniedView from "./views/DeniedView.vue";
 import ManageView from "./views/ManageView.vue";
 import SessionView from "./views/SessionView.vue";
-import {
-  decodeJwt,
-  exchangeManageJwt,
-  getStoredSessionToken,
-  loadStoredAuth,
-  onAccessDenied,
-  readTokenFromUrl,
-  setManageTokens,
-  setSessionToken,
-} from "./api";
+import { setApi } from "./api";
 
 const PLUGIN_KEY = "karyl-radio";
+const MANAGE_CAP_TOKEN = `plugin:${PLUGIN_KEY}:manage`;
 
 type View = "loading" | "denied" | "session" | "manage";
 const view = ref<View>("loading");
@@ -26,73 +19,75 @@ const deniedMessage = ref<string | null>(null);
 // around: the plugin's access token is opaque to the SPA.
 const sessionGuildId = ref<string | null>(null);
 
-onAccessDenied((msg) => {
-  deniedMessage.value = msg || "Access denied — re-open the link / ask an admin.";
-  view.value = "denied";
-});
-
 function isManageClaims(claims: { capabilities?: unknown } | null): boolean {
   const caps = Array.isArray(claims?.capabilities)
     ? (claims!.capabilities as string[])
     : [];
-  return (
-    caps.includes("admin") || caps.includes(`plugin:${PLUGIN_KEY}:manage`)
-  );
+  return caps.includes("admin") || caps.includes(MANAGE_CAP_TOKEN);
+}
+
+function deny(msg: string): void {
+  deniedMessage.value = msg;
+  view.value = "denied";
 }
 
 async function bootstrap(): Promise<void> {
-  const urlToken = readTokenFromUrl();
-  if (urlToken) {
-    const claims = decodeJwt(urlToken);
-    if (!claims) {
-      deniedMessage.value = "Token couldn't be decoded.";
-      view.value = "denied";
-      return;
+  // Radio's link URLs don't carry `?surface=` — the bot CLI emits a
+  // single `/?token=…` (manage or session, distinguished by the JWT's
+  // capabilities). Use the SDK 0.5 `surfaceFromClaims` resolver to
+  // derive surface from the token; the SDK then handles decode,
+  // manage exchange, refresh, and sessionStorage restore.
+  const handle = await bootstrapPluginSession({
+    pluginKey: PLUGIN_KEY,
+    surfaces: {
+      manage: "manage",
+      session: "session",
+    },
+    surfaceFromClaims: (claims) =>
+      isManageClaims(claims) ? "manage" : "session",
+    onAccessDenied: (msg) =>
+      deny(msg || "Access denied — re-open the link / ask an admin."),
+  });
+  setApi(handle.api);
+
+  if (handle.denied) {
+    if (view.value !== "denied") {
+      deny(handle.deniedReason ?? "Access denied — re-open the link / ask an admin.");
     }
-    // Session: guildId-scoped JWT, used as-is for every /api/session/*
-    // call until it expires. No exchange step.
-    if (typeof claims.guildId === "string") {
-      setSessionToken(urlToken);
-      sessionGuildId.value = claims.guildId;
-      view.value = "session";
-      return;
-    }
-    // Manage: trade the bot JWT for a plugin access+refresh pair. The
-    // bot JWT then disappears (not stored anywhere).
-    if (isManageClaims(claims)) {
-      const tokens = await exchangeManageJwt(urlToken);
-      if (!tokens) {
-        deniedMessage.value =
-          "Couldn't start a manage session — your link may have expired. Re-run /radio manage.";
-        view.value = "denied";
-        return;
-      }
-      setManageTokens(tokens);
+    return;
+  }
+
+  if (handle.mode === "none") {
+    deny("No valid token. Run /radio manage or use a play/queue response button.");
+    return;
+  }
+
+  // Tab reload — SDK restored auth from sessionStorage but has no
+  // decoded claims for us. Manage resumes cleanly (the SPA never
+  // needed claims for that path); session mode needs the guildId from
+  // claims, so re-prompt the user.
+  if (!handle.claims) {
+    if (handle.mode === "manage") {
       view.value = "manage";
       return;
     }
-    deniedMessage.value = "This link doesn't grant access to the admin panel.";
-    view.value = "denied";
+    deny("Tab reload lost the session token claims — re-run /radio.");
     return;
   }
-  // No URL token: maybe this is a tab reload — restore from storage.
-  const stored = loadStoredAuth();
-  if (stored === "manage") {
+
+  if (handle.surface === "manage") {
     view.value = "manage";
     return;
   }
-  if (stored === "session") {
-    const raw = getStoredSessionToken();
-    const claims = raw ? decodeJwt(raw) : null;
-    if (claims && typeof claims.guildId === "string") {
-      sessionGuildId.value = claims.guildId;
-      view.value = "session";
-      return;
-    }
+
+  // Session mode — pull the guildId from the freshly-decoded claims so
+  // SessionView can scope its requests.
+  if (typeof handle.claims.guildId === "string") {
+    sessionGuildId.value = handle.claims.guildId;
+    view.value = "session";
+    return;
   }
-  deniedMessage.value =
-    "No valid token. Run /radio manage or use a play/queue response button.";
-  view.value = "denied";
+  deny("This link doesn't grant access to a playback session.");
 }
 
 void bootstrap();
