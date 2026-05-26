@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import AppButton from "../components/AppButton.vue";
+import { AppButton } from "@karyl-chan/ui";
 import NowPlayingCard from "../components/NowPlayingCard.vue";
 import PlaylistList from "../components/PlaylistList.vue";
 import { api } from "../api";

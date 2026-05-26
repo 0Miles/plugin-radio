@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import Sortable from "sortablejs";
-import AppButton from "./AppButton.vue";
+import { AppButton } from "@karyl-chan/ui";
 import Thumb from "./Thumb.vue";
 import TrackLink from "./TrackLink.vue";
 import { trackMeta } from "../composables/use-format";

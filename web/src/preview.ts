@@ -1,9 +1,13 @@
 import { createApp, h, ref } from "vue";
+import { createPinia } from "pinia";
+import "@karyl-chan/ui/tokens.css";
+import "@karyl-chan/ui/reset.css";
+import "@karyl-chan/ui/use-drawer.css";
+import "@karyl-chan/ui/use-popover.css";
 import "./styles/global.css";
 import PlaylistList from "./components/PlaylistList.vue";
 import NowPlayingCard from "./components/NowPlayingCard.vue";
-import AppButton from "./components/AppButton.vue";
-import AppToast from "./components/AppToast.vue";
+import { AppButton, AppToast } from "@karyl-chan/ui";
 import type { SessionSnapshot, Track } from "./types";
 
 // Mock playlist: a few "played" tracks before the cursor, a "current"
@@ -219,4 +223,4 @@ createApp({
         h(AppToast),
       ]);
   },
-}).mount("#app");
+}).use(createPinia()).mount("#app");

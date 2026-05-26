@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
-import AppButton from "./AppButton.vue";
-import AppModal from "./AppModal.vue";
+import { AppButton, AppModal } from "@karyl-chan/ui";
 import { api, apiUpload } from "../api";
 import { useToast } from "../composables/use-toast";
 import type { LibraryTrack } from "../types";
@@ -196,7 +195,14 @@ async function save() {
 </template>
 
 <style scoped>
-.edit-form { display: flex; flex-direction: column; gap: 0.85rem; }
+/* @karyl-chan/ui AppModal leaves body padding to the caller — match
+   what the old local AppModal hard-coded so layout stays unchanged. */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+}
 .field { display: flex; flex-direction: column; gap: 0.3rem; }
 .field label {
   font-size: 0.78rem;

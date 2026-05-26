@@ -1,7 +1,12 @@
 import { createApp, h } from "vue";
+import { createPinia } from "pinia";
+import "@karyl-chan/ui/tokens.css";
+import "@karyl-chan/ui/reset.css";
+import "@karyl-chan/ui/use-drawer.css";
+import "@karyl-chan/ui/use-popover.css";
 import "./styles/global.css";
 import ManageView from "./views/ManageView.vue";
-import AppToast from "./components/AppToast.vue";
+import { AppToast } from "@karyl-chan/ui";
 import type { LibraryTrack, Playlist, PlaylistEntryInfo } from "./types";
 
 // Stand-alone preview of the ManageView edit-track flow. All HTTP calls
@@ -216,4 +221,4 @@ createApp({
         h(AppToast),
       ]);
   },
-}).mount("#app");
+}).use(createPinia()).mount("#app");

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import AppButton from "../components/AppButton.vue";
+import { AppButton, AppTabs, type TabDef } from "@karyl-chan/ui";
 import Thumb from "../components/Thumb.vue";
 import TrackLink from "../components/TrackLink.vue";
 import EditTrackModal from "../components/EditTrackModal.vue";
@@ -14,6 +14,13 @@ const { ok, error } = useToast();
 
 type Tab = "tracks" | "playlists";
 const activeTab = ref<Tab>("tracks");
+const tabs: TabDef[] = [
+  { key: "tracks", label: "Tracks" },
+  { key: "playlists", label: "Playlists" },
+];
+function pickTab(key: string): void {
+  if (key === "tracks" || key === "playlists") activeTab.value = key;
+}
 
 const tracks = ref<LibraryTrack[]>([]);
 const searchText = ref("");
@@ -183,22 +190,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <nav class="tabs" role="tablist" aria-label="Manage sections">
-    <button
-      type="button"
-      role="tab"
-      :aria-selected="activeTab === 'tracks'"
-      :class="['tab', { 'tab--active': activeTab === 'tracks' }]"
-      @click="activeTab = 'tracks'"
-    >Tracks</button>
-    <button
-      type="button"
-      role="tab"
-      :aria-selected="activeTab === 'playlists'"
-      :class="['tab', { 'tab--active': activeTab === 'playlists' }]"
-      @click="activeTab = 'playlists'"
-    >Playlists</button>
-  </nav>
+  <AppTabs
+    :model-value="activeTab"
+    :tabs="tabs"
+    class="manage-tabs"
+    @update:model-value="pickTab"
+  />
 
   <template v-if="activeTab === 'tracks'">
     <div class="card">
@@ -332,29 +329,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.tabs {
-  display: flex;
-  gap: 0.4rem;
+.manage-tabs {
   margin-bottom: 0.85rem;
-  border-bottom: 1px solid var(--border);
-}
-.tab {
-  background: none;
-  border: none;
-  padding: 0.55rem 0.95rem;
-  font: inherit;
-  color: var(--text-muted);
-  font-weight: 550;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-.tab:hover { color: var(--text); }
-.tab--active {
-  color: var(--text);
-  border-bottom-color: var(--accent);
 }
 
 .intro code {
