@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> **This repository has moved to [karyl-chan/plugin-radio](https://github.com/karyl-chan/plugin-radio).**
+> The new location is the source of truth; this fork is archived and no longer maintained.
+>
+> Update your remote:
+> ```
+> git remote set-url origin https://github.com/karyl-chan/plugin-radio.git
+> ```
+
 # @karyl-chan/plugin-radio
 
 Voice/audio plugin for karyl-chan:
